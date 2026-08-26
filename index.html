@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EDEAE3">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Shelf</title>
+<style>
+  :root{
+    --paper:#EDEAE3;
+    --card:#F7F5F0;
+    --ink:#1B1A17;
+    --ink-soft:#6B6A63;
+    --rule:#CFCABC;
+    --signal:#1F3BEB;
+    --rust:#A2422A;
+    --pad:18px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-text-size-adjust:100%;
+    min-height:100dvh;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}
+
+  header{
+    padding:calc(env(safe-area-inset-top) + 22px) var(--pad) 14px;
+    border-bottom:1px solid var(--rule);
+  }
+  .eyebrow{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);
+  }
+  h1{
+    margin:2px 0 0;font-size:30px;line-height:1;letter-spacing:-.03em;font-weight:800;
+  }
+  .count{color:var(--ink-soft);font-weight:400;letter-spacing:-.01em}
+
+  main{padding:var(--pad) var(--pad) 120px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .tile{
+    position:relative;text-align:left;cursor:pointer;
+    background:var(--card);border:1px solid var(--rule);border-radius:2px;
+    padding:14px 12px 12px;min-height:104px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    box-shadow:2px 2px 0 rgba(27,26,23,.06);
+    transition:transform .12s ease, box-shadow .12s ease;
+    font:inherit;color:inherit;width:100%;
+  }
+  .tile:active{transform:translate(2px,2px);box-shadow:0 0 0 rgba(0,0,0,0)}
+  .tile .idx{
+    position:absolute;top:0;right:0;
+    background:var(--ink);color:var(--paper);
+    font-size:10px;letter-spacing:.1em;padding:3px 6px;
+  }
+  .tile .name{font-size:15px;font-weight:650;letter-spacing:-.01em;line-height:1.25;padding-right:26px}
+  .tile .meta{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-top:10px}
+
+  .empty{
+    border:1px dashed var(--rule);border-radius:2px;padding:26px 18px;text-align:center;color:var(--ink-soft);
+  }
+  .empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+
+  .bar{
+    position:fixed;left:0;right:0;bottom:0;
+    padding:12px var(--pad) calc(env(safe-area-inset-bottom) + 12px);
+    background:linear-gradient(to top,var(--paper) 70%,rgba(237,234,227,0));
+    display:flex;gap:8px;
+  }
+  button.btn{
+    font:inherit;font-weight:650;font-size:14px;letter-spacing:-.01em;
+    border-radius:2px;padding:13px 16px;cursor:pointer;border:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);flex:1;
+  }
+  button.btn.ghost{background:transparent;color:var(--ink);flex:0 0 auto}
+  button.btn:active{opacity:.75}
+
+  /* sheet */
+  .scrim{position:fixed;inset:0;background:rgba(27,26,23,.4);display:none;z-index:20}
+  .scrim.on{display:block}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:21;
+    background:var(--paper);border-top:2px solid var(--ink);
+    padding:16px var(--pad) calc(env(safe-area-inset-bottom) + 16px);
+    max-height:90dvh;overflow:auto;display:none;
+  }
+  .sheet.on{display:block}
+  .sheet h2{margin:0 0 2px;font-size:20px;letter-spacing:-.02em}
+  .sheet p.hint{margin:0 0 14px;font-size:13px;color:var(--ink-soft);line-height:1.45}
+  label.field{display:block;margin-bottom:12px}
+  label.field span{
+    display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  }
+  input[type=text],textarea{
+    width:100%;font:inherit;background:var(--card);color:var(--ink);
+    border:1px solid var(--rule);border-radius:2px;padding:11px 12px;
+  }
+  textarea{min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.5}
+  input[type=text]:focus,textarea:focus,button:focus-visible,.tile:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  .filelist{font-size:12px;color:var(--ink-soft);margin:-6px 0 12px;line-height:1.6}
+  .filelist b{color:var(--ink);font-weight:600}
+  .row{display:flex;gap:8px}
+  .row .btn{flex:1}
+  .danger{border-color:var(--rust);background:transparent;color:var(--rust)}
+  .linky{background:none;border:none;color:var(--signal);font:inherit;font-size:13px;padding:8px 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+  /* runner */
+  #runner{position:fixed;inset:0;z-index:40;background:#fff;display:none}
+  #runner.on{display:block}
+  #frame{border:0;width:100%;height:100%;display:block}
+  #exit{
+    position:fixed;z-index:41;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);
+    background:var(--ink);color:var(--paper);border:none;border-radius:999px;
+    padding:11px 15px;font:inherit;font-size:13px;font-weight:650;
+    box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;cursor:pointer;
+  }
+  #exit.on{display:block}
+  .warn{background:#F6E7C8;border:1px solid #D8B96A;padding:10px 12px;font-size:12.5px;line-height:1.5;margin:0 0 14px;border-radius:2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">local · offline · no install</div>
+  <h1>Shelf <span class="count" id="count"></span></h1>
+</header>
+
+<main>
+  <div id="warn" class="warn" style="display:none"></div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">
+    <strong>Nothing on the shelf yet</strong>
+    Add a mini-app by pasting its HTML or picking the file you saved.
+  </div>
+</main>
+
+<div class="bar">
+  <button class="btn" id="addBtn">Add mini-app</button>
+  <button class="btn ghost" id="moreBtn" aria-label="Backup and restore">⋯</button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- Add / edit sheet -->
+<div class="sheet" id="addSheet" role="dialog" aria-modal="true">
+  <h2 id="addTitle">Add mini-app</h2>
+  <p class="hint">Paste the whole HTML, or pick files. Extra .css / .js / image files get folded into the page automatically.</p>
+  <label class="field">
+    <span>Name</span>
+    <input type="text" id="nameIn" placeholder="Taken from &lt;title&gt; if left blank">
+  </label>
+  <div class="row" style="margin-bottom:12px">
+    <button class="btn ghost" id="pickBtn" style="flex:1">Pick files</button>
+    <input type="file" id="fileIn" multiple hidden accept=".html,.htm,.css,.js,.json,.svg,.txt,image/*">
+  </div>
+  <div class="filelist" id="fileList"></div>
+  <label class="field">
+    <span>HTML</span>
+    <textarea id="htmlIn" placeholder="&lt;!DOCTYPE html&gt; …" spellcheck="false"></textarea>
+  </label>
+  <div class="row">
+    <button class="btn ghost" id="cancelAdd">Cancel</button>
+    <button class="btn" id="saveAdd">Save</button>
+  </div>
+</div>
+
+<!-- App options sheet -->
+<div class="sheet" id="appSheet" role="dialog" aria-modal="true">
+  <h2 id="appName">App</h2>
+  <p class="hint" id="appMeta"></p>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn" id="openApp">Open</button>
+    <button class="btn ghost" id="tabApp">New tab</button>
+  </div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn ghost" id="editApp" style="flex:1">Rename or replace code</button>
+  </div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn ghost" id="saveFile" style="flex:1">Save as .html file</button>
+  </div>
+  <div class="row">
+    <button class="btn ghost danger" id="delApp" style="flex:1">Remove from shelf</button>
+  </div>
+  <button class="linky" id="closeApp" style="display:block;margin:6px auto 0">Close</button>
+</div>
+
+<!-- Backup sheet -->
+<div class="sheet" id="backupSheet" role="dialog" aria-modal="true">
+  <h2>Backup</h2>
+  <p class="hint">Your shelf lives in this browser's storage. Export a backup file so you can restore it on another phone or after clearing browsing data.</p>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn" id="expBtn">Export backup</button>
+    <button class="btn ghost" id="impBtn">Import</button>
+    <input type="file" id="impIn" hidden accept=".json,application/json">
+  </div>
+  <button class="linky" id="closeBackup" style="display:block;margin:6px auto 0">Close</button>
+</div>
+
+<div id="runner"><iframe id="frame" allow="camera;microphone;geolocation;clipboard-write;fullscreen" allowfullscreen></iframe></div>
+<button id="exit">✕ Shelf</button>
+
+<script>
+(function(){
+"use strict";
+
+var KEY = "shelf.apps.v1";
+var apps = [];
+var store = null;
+var editingId = null;
+var currentId = null;
+var pending = {};   // filename -> {text | dataUrl}
+
+/* ---------- storage ---------- */
+try {
+  localStorage.setItem("shelf.probe","1");
+  localStorage.removeItem("shelf.probe");
+  store = localStorage;
+} catch(e){ store = null; }
+
+function load(){
+  if(!store){ apps = []; return; }
+  try { apps = JSON.parse(store.getItem(KEY) || "[]"); } catch(e){ apps = []; }
+}
+function save(){
+  if(!store) return true;
+  try { store.setItem(KEY, JSON.stringify(apps)); return true; }
+  catch(e){
+    alert("Storage is full. Remove an app, or export a backup and trim it. (Browsers cap this at about 5 MB.)");
+    return false;
+  }
+}
+
+/* ---------- helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); }
+function titleOf(html){
+  var m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html||"");
+  if(m && m[1].trim()) return m[1].trim().slice(0,60);
+  var h = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html||"");
+  if(h) return h[1].replace(/<[^>]*>/g,"").trim().slice(0,60);
+  return "Untitled app";
+}
+function bytes(n){
+  if(n < 1024) return n + " B";
+  if(n < 1024*1024) return Math.round(n/1024) + " KB";
+  return (n/1048576).toFixed(1) + " MB";
+}
+function sizeOf(app){
+  var t = 0, k;
+  for(k in app.files){ t += app.files[k].length; }
+  return t;
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* Fold extra files into the main HTML so the app runs from one string. */
+function bundle(app){
+  var files = app.files || {};
+  var mainName = app.main || Object.keys(files).filter(function(n){ return /\.html?$/i.test(n); })[0];
+  var html = files[mainName] || "";
+  Object.keys(files).forEach(function(name){
+    if(name === mainName) return;
+    var body = files[name];
+    var base = name.split("/").pop();
+    var pat = base.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+    if(/\.css$/i.test(name)){
+      html = html.replace(new RegExp('<link[^>]*href=["\'][^"\']*' + pat + '["\'][^>]*>',"gi"),
+                          "<style>\n" + body + "\n</style>");
+    } else if(/\.js$/i.test(name)){
+      html = html.replace(new RegExp('<script[^>]*src=["\'][^"\']*' + pat + '["\'][^>]*>\\s*<\\/script>',"gi"),
+                          "<scr"+"ipt>\n" + body + "\n</scr"+"ipt>");
+    } else {
+      html = html.split(name).join(body).split("./" + name).join(body);
+    }
+  });
+  return html;
+}
+
+/* ---------- render ---------- */
+function render(){
+  var grid = $("grid"), i;
+  grid.innerHTML = "";
+  $("count").textContent = apps.length ? "· " + apps.length : "";
+  $("empty").style.display = apps.length ? "none" : "block";
+  for(i=0;i<apps.length;i++){
+    (function(app, n){
+      var b = document.createElement("button");
+      b.className = "tile";
+      b.innerHTML = '<span class="idx mono">' + String(n+1).padStart(2,"0") + '</span>' +
+                    '<span class="name">' + esc(app.name) + '</span>' +
+                    '<span class="meta mono">' + Object.keys(app.files).length + ' file' +
+                    (Object.keys(app.files).length>1?'s':'') + ' · ' + bytes(sizeOf(app)) + '</span>';
+      b.onclick = function(){ run(app.id); };
+      b.oncontextmenu = function(e){ e.preventDefault(); options(app.id); };
+      var t;
+      b.addEventListener("touchstart", function(){ t = setTimeout(function(){ options(app.id); }, 550); }, {passive:true});
+      ["touchend","touchmove","touchcancel"].forEach(function(ev){
+        b.addEventListener(ev, function(){ clearTimeout(t); }, {passive:true});
+      });
+      grid.appendChild(b);
+    })(apps[i], i);
+  }
+  if(!store){
+    $("warn").style.display = "block";
+    $("warn").innerHTML = "This browser is blocking storage for local files, so the shelf can't be saved here. Fix: open this page from an https address (see the note that came with this file), or use Import each time.";
+  }
+}
+
+/* ---------- sheets ---------- */
+function openSheet(id){ $("scrim").classList.add("on"); $(id).classList.add("on"); }
+function closeSheets(){
+  $("scrim").classList.remove("on");
+  ["addSheet","appSheet","backupSheet"].forEach(function(s){ $(s).classList.remove("on"); });
+}
+$("scrim").onclick = closeSheets;
+
+/* ---------- add / edit ---------- */
+function openAdd(id){
+  editingId = id || null;
+  pending = {};
+  var app = id ? apps.filter(function(a){return a.id===id;})[0] : null;
+  $("addTitle").textContent = app ? "Edit mini-app" : "Add mini-app";
+  $("nameIn").value = app ? app.name : "";
+  $("htmlIn").value = app ? (app.files[app.main] || "") : "";
+  if(app){
+    Object.keys(app.files).forEach(function(k){ if(k !== app.main) pending[k] = app.files[k]; });
+  }
+  paintFiles();
+  closeSheets();
+  openSheet("addSheet");
+}
+function paintFiles(){
+  var names = Object.keys(pending);
+  $("fileList").innerHTML = names.length
+    ? "Attached: " + names.map(function(n){ return "<b>" + esc(n) + "</b>"; }).join(", ")
+    : "";
+}
+$("addBtn").onclick = function(){ openAdd(null); };
+$("cancelAdd").onclick = closeSheets;
+$("pickBtn").onclick = function(){ $("fileIn").click(); };
+
+$("fileIn").onchange = function(e){
+  var files = Array.prototype.slice.call(e.target.files || []);
+  var left = files.length;
+  files.forEach(function(f){
+    var r = new FileReader();
+    var isText = /\.(html?|css|js|json|svg|txt)$/i.test(f.name);
+    r.onload = function(){
+      if(/\.html?$/i.test(f.name) && !$("htmlIn").value.trim()){
+        $("htmlIn").value = r.result;
+        if(!$("nameIn").value) $("nameIn").value = titleOf(r.result);
+      } else {
+        pending[f.name] = r.result;
+      }
+      if(--left === 0) paintFiles();
+    };
+    if(isText) r.readAsText(f); else r.readAsDataURL(f);
+  });
+  e.target.value = "";
+};
+
+$("saveAdd").onclick = function(){
+  var html = $("htmlIn").value;
+  if(!html.trim()){ alert("Paste the HTML first, or pick an .html file."); return; }
+  var name = $("nameIn").value.trim() || titleOf(html);
+  var files = {"index.html": html};
+  Object.keys(pending).forEach(function(k){ files[k] = pending[k]; });
+  if(editingId){
+    var a = apps.filter(function(x){return x.id===editingId;})[0];
+    a.name = name; a.files = files; a.main = "index.html"; a.updated = Date.now();
+  } else {
+    apps.unshift({id:uid(), name:name, files:files, main:"index.html", updated:Date.now()});
+  }
+  if(save()){ render(); closeSheets(); }
+};
+
+/* ---------- options ---------- */
+function options(id){
+  currentId = id;
+  var a = apps.filter(function(x){return x.id===id;})[0];
+  $("appName").textContent = a.name;
+  $("appMeta").textContent = Object.keys(a.files).length + " file(s) · " + bytes(sizeOf(a)) +
+                             " · saved " + new Date(a.updated).toLocaleDateString();
+  closeSheets(); openSheet("appSheet");
+}
+$("closeApp").onclick = closeSheets;
+$("openApp").onclick = function(){ closeSheets(); run(currentId); };
+$("editApp").onclick = function(){ openAdd(currentId); };
+$("delApp").onclick = function(){
+  var a = apps.filter(function(x){return x.id===currentId;})[0];
+  if(!confirm("Remove “" + a.name + "” from the shelf?")) return;
+  apps = apps.filter(function(x){ return x.id !== currentId; });
+  save(); render(); closeSheets();
+};
+$("tabApp").onclick = function(){
+  var a = apps.filter(function(x){return x.id===currentId;})[0];
+  var url = URL.createObjectURL(new Blob([bundle(a)], {type:"text/html"}));
+  window.open(url, "_blank");
+  closeSheets();
+};
+$("saveFile").onclick = function(){
+  var a = apps.filter(function(x){return x.id===currentId;})[0];
+  download(a.name.replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") + ".html", bundle(a), "text/html");
+  closeSheets();
+};
+
+/* ---------- runner ---------- */
+function run(id){
+  var a = apps.filter(function(x){return x.id===id;})[0];
+  if(!a) return;
+  $("frame").srcdoc = bundle(a);
+  $("runner").classList.add("on");
+  $("exit").classList.add("on");
+  document.title = a.name;
+  history.pushState({running:true}, "");
+}
+function stop(){
+  $("runner").classList.remove("on");
+  $("exit").classList.remove("on");
+  $("frame").srcdoc = "";
+  document.title = "Shelf";
+}
+$("exit").onclick = function(){ history.back(); };
+window.addEventListener("popstate", function(){
+  if($("runner").classList.contains("on")) stop();
+});
+
+/* ---------- backup ---------- */
+function download(filename, text, type){
+  var url = URL.createObjectURL(new Blob([text], {type: type || "application/json"}));
+  var a = document.createElement("a");
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+$("moreBtn").onclick = function(){ closeSheets(); openSheet("backupSheet"); };
+$("closeBackup").onclick = closeSheets;
+$("expBtn").onclick = function(){
+  download("shelf-backup-" + new Date().toISOString().slice(0,10) + ".json",
+           JSON.stringify({v:1, apps:apps}, null, 1));
+};
+$("impBtn").onclick = function(){ $("impIn").click(); };
+$("impIn").onchange = function(e){
+  var f = e.target.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var data = JSON.parse(r.result);
+      var incoming = data.apps || [];
+      var have = {}; apps.forEach(function(a){ have[a.id] = true; });
+      incoming.forEach(function(a){ if(!have[a.id]) apps.push(a); });
+      save(); render(); closeSheets();
+      alert("Imported " + incoming.length + " app(s).");
+    }catch(err){ alert("That file isn't a Shelf backup."); }
+  };
+  r.readAsText(f); e.target.value = "";
+};
+
+load(); render();
+
+/* ---------- offline ---------- */
+if("serviceWorker" in navigator && location.protocol === "https:"){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){ /* offline mode unavailable */ });
+  });
+}
+})();
+</script>
+</body>
+</html>
